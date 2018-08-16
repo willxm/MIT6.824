@@ -65,6 +65,8 @@ func doMap(
 	for i := 0; i < nReduce; i++ {
 		rn := reduceName(jobName, mapTask, i)
 		fo, err := os.Create(rn)
+		defer fo.Close()
+
 		if err != nil {
 			panic(err)
 		}
