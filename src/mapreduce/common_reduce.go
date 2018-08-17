@@ -2,6 +2,7 @@ package mapreduce
 
 import (
 	"encoding/json"
+	"io"
 	"os"
 	"sort"
 )
@@ -69,7 +70,7 @@ func doReduce(
 		for {
 			var kv KeyValue
 			err := dec.Decode(&kv)
-			if err != nil {
+			if err == io.EOF {
 				break
 			}
 
