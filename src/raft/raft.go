@@ -20,10 +20,8 @@ package raft
 import "sync"
 import "labrpc"
 
-// import "bytes"
-// import "labgob"
-
-
+import "bytes"
+import "labgob"
 
 //
 // as each Raft peer becomes aware that successive log entries are
@@ -42,6 +40,14 @@ type ApplyMsg struct {
 	CommandIndex int
 }
 
+type Status int
+
+const (
+	FOLLOWER  Status = iota // value --> 0
+	CANDIDATE               // value --> 1
+	LEADER                  // value --> 2
+)
+
 //
 // A Go object implementing a single Raft peer.
 //
@@ -55,6 +61,22 @@ type Raft struct {
 	// Look at the paper's Figure 2 for a description of what
 	// state a Raft server must maintain.
 
+	status Status
+
+	currentTerm int
+	votedFor    int
+	log         []Entry
+
+	// if commitIndex > lastApplied, lastApplied + 1
+	commitIndex int
+	lastApplied int
+
+	nextIndex  []int
+	matchIndex []int
+}
+
+type Entry struct {
+	Command interface{}
 }
 
 // return currentTerm and whether this server
@@ -64,9 +86,14 @@ func (rf *Raft) GetState() (int, bool) {
 	var term int
 	var isleader bool
 	// Your code here (2A).
+
+	rf.mu.Lock()
+	term = rf.currentTerm
+	isleader = rf.Status == LEADER
+	rf.mu.Unlock()
+
 	return term, isleader
 }
-
 
 //
 // save Raft's persistent state to stable storage,
@@ -82,8 +109,16 @@ func (rf *Raft) persist() {
 	// e.Encode(rf.yyy)
 	// data := w.Bytes()
 	// rf.persister.SaveRaftState(data)
-}
 
+	w := new(bytes.Buffer)
+	e := labgob.NewEncoder(w)
+	e.Encode(rf.currentTerm)
+	e.Encode(rf.votedFor)
+	e.Encode(rf.log)
+	data := w.Bytes()
+	rf.persister.SaveRaftState(data)
+
+}
 
 //
 // restore previously persisted state.
@@ -105,10 +140,21 @@ func (rf *Raft) readPersist(data []byte) {
 	//   rf.xxx = xxx
 	//   rf.yyy = yyy
 	// }
+	r := bytes.NewBuffer(data)
+	d := labgob.NewDecoder(r)
+	var ct int
+	var vtf int
+	var log []Entry
+	if d.Decode(&ct) != nil ||
+		d.Decode(&vtf) != nil ||
+		d.Decode(&log) != nil {
+		panic("encode error")
+	} else {
+		rf.currentTerm = ct
+		rf.votedFor = vtf
+		rf.log = log
+	}
 }
-
-
-
 
 //
 // example RequestVote RPC arguments structure.
@@ -167,7 +213,6 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 	return ok
 }
 
-
 //
 // the service using Raft (e.g. a k/v server) wants to start
 // agreement on the next command to be appended to Raft's log. if this
@@ -188,7 +233,6 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	isLeader := true
 
 	// Your code here (2B).
-
 
 	return index, term, isLeader
 }
@@ -225,7 +269,6 @@ func Make(peers []*labrpc.ClientEnd, me int,
 
 	// initialize from state persisted before a crash
 	rf.readPersist(persister.ReadRaftState())
-
 
 	return rf
 }
