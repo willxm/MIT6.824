@@ -76,6 +76,7 @@ type Raft struct {
 }
 
 type Entry struct {
+	Term    int
 	Command interface{}
 }
 
@@ -162,6 +163,10 @@ func (rf *Raft) readPersist(data []byte) {
 //
 type RequestVoteArgs struct {
 	// Your data here (2A, 2B).
+	Term         int
+	CandidateId  int
+	lastLogIndex int
+	lastLogTerm  int
 }
 
 //
@@ -170,6 +175,8 @@ type RequestVoteArgs struct {
 //
 type RequestVoteReply struct {
 	// Your data here (2A).
+	Term    int
+	Success bool
 }
 
 //
