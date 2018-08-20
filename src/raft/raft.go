@@ -76,6 +76,7 @@ type Raft struct {
 }
 
 type Entry struct {
+	Index   int
 	Term    int
 	Command interface{}
 }
