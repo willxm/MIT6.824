@@ -166,8 +166,8 @@ type RequestVoteArgs struct {
 	// Your data here (2A, 2B).
 	Term         int
 	CandidateId  int
-	lastLogIndex int
-	lastLogTerm  int
+	LastLogIndex int
+	LastLogTerm  int
 }
 
 //
@@ -177,7 +177,7 @@ type RequestVoteArgs struct {
 type RequestVoteReply struct {
 	// Your data here (2A).
 	Term        int
-	voteGranted bool
+	VoteGranted bool
 }
 
 //
@@ -185,6 +185,18 @@ type RequestVoteReply struct {
 //
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	// Your code here (2A, 2B).
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+
+	if args.Term < rf.currentTerm {
+		reply.Term = rf.currentTerm
+		reply.VoteGranted = false
+		return
+	}
+	if args.Term > rf.currentTerm {
+		rf.currentTerm = args.Term
+		rf.status = FOLLOWER
+	}
 }
 
 //
