@@ -81,6 +81,11 @@ type Entry struct {
 	Command interface{}
 }
 
+// getLastEntry
+func (rf *Raft) getLastEntry() Entry {
+	return rf.log[len(rf.log)-1]
+}
+
 // return currentTerm and whether this server
 // believes it is the leader.
 func (rf *Raft) GetState() (int, bool) {
@@ -91,7 +96,7 @@ func (rf *Raft) GetState() (int, bool) {
 
 	rf.mu.Lock()
 	term = rf.currentTerm
-	isleader = rf.Status == LEADER
+	isleader = rf.status == LEADER
 	rf.mu.Unlock()
 
 	return term, isleader
@@ -196,6 +201,15 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	if args.Term > rf.currentTerm {
 		rf.currentTerm = args.Term
 		rf.status = FOLLOWER
+		rf.votedFor = -1
+	}
+	reply.Term = rf.currentTerm
+
+	if (args.LastLogTerm > rf.getLastEntry().Term) || (args.LastLogTerm == rf.getLastEntry().Term && args.LastLogIndex >= rf.getLastEntry().Index) {
+		rf.votedFor = args.CandidateId
+		reply.VoteGranted = true
+	} else {
+		reply.VoteGranted = false
 	}
 }
 
@@ -253,6 +267,17 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	isLeader := true
 
 	// Your code here (2B).
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+
+	if rf.status == LEADER {
+		index = rf.getLastEntry().Index + 1
+		entry := Entry{index, rf.currentTerm, command}
+		rf.log = append(rf.log, entry)
+		rf.persist()
+	} else {
+		isLeader = false
+	}
 
 	return index, term, isLeader
 }
@@ -265,6 +290,10 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 //
 func (rf *Raft) Kill() {
 	// Your code here, if desired.
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+
+	rf.persist()
 }
 
 //
@@ -286,6 +315,16 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.me = me
 
 	// Your initialization code here (2A, 2B, 2C).
+
+	rf.currentTerm = 0
+	rf.votedFor = -1
+
+	rf.status = FOLLOWER
+	rf.log = make([]Entry, 1)
+	rf.commitIndex = 0
+	rf.lastApplied = 0
+
+	//TODO:
 
 	// initialize from state persisted before a crash
 	rf.readPersist(persister.ReadRaftState())
