@@ -73,8 +73,17 @@ type Raft struct {
 
 	nextIndex  []int
 	matchIndex []int
+
+	beLeader     chan struct{}
+	timeToCommit chan struct{}
+	grantVote    chan struct{}
+	getHeartBeat chan struct{}
+
+	applyCh   chan ApplyMsg
+	voteCount int
 }
 
+// Entry ...
 type Entry struct {
 	Index   int
 	Term    int
